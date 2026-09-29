@@ -13,7 +13,7 @@ export function WalletConnect() {
   const { connected, publicKey, disconnect } = useWalletStore();
   const { push } = useToastStore();
   const {
-    handleConnect
+    handleConnect,
     status,
     showRiskDisclosure,
     acceptRiskDisclosure,

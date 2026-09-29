@@ -77,24 +77,40 @@ describe("WalletConnect — connected state", () => {
 });
 
 describe("WalletConnect — no-extension fallback", () => {
-  it("links to the attempted wallet's own install page, not a hardcoded one", () => {
-    mockConnect({ status: "no-extension", attemptedWalletId: "lobstr" });
-    render(<WalletConnect />);
+  it("opens the wallet's own install page in a new tab when it is not installed", async () => {
+    const openSpy = vi.fn();
+    vi.stubGlobal("open", openSpy);
 
-    const link = screen.getByRole("link") as HTMLAnchorElement;
-    expect(link.href).toBe("https://lobstr.co/");
-    expect(link.textContent).toBe('common.installWallet:{"name":"LOBSTR"}');
+    render(<WalletConnect />);
+    fireEvent.click(screen.getByTestId("wallet-picker-toggle"));
+
+    // Wait for isInstalled() to resolve so the picker knows lobstr is missing.
+    await waitFor(() => {
+      const lobstrRow = screen.getByTestId("wallet-picker-option-lobstr");
+      expect(lobstrRow.textContent).toContain("walletConnect.install");
+    });
+
+    fireEvent.click(screen.getByTestId("wallet-picker-option-lobstr"));
+
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://lobstr.co",
+      "_blank",
+      "noopener,noreferrer"
+    );
+    expect(handleConnect).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
   });
 });
 
 describe("WalletConnect — picker", () => {
-  it("plain click connects through the default/selected wallet with no picker involved", () => {
+  it("plain click opens the picker and does not connect immediately", () => {
     render(<WalletConnect />);
 
-    fireEvent.click(screen.getByText("common.connectWallet"));
+    fireEvent.click(screen.getByTestId("wallet-picker-toggle"));
 
-    expect(handleConnect).toHaveBeenCalledWith();
-    expect(screen.queryByTestId("wallet-picker-menu")).toBeNull();
+    expect(screen.getByTestId("wallet-picker-menu")).toBeDefined();
+    expect(handleConnect).not.toHaveBeenCalled();
   });
 
   it("opens a menu listing every implemented wallet", async () => {
@@ -123,8 +139,16 @@ describe("WalletConnect — picker", () => {
   });
 
   it("connects through the specific wallet clicked in the menu", async () => {
+    lobstrInstalled.mockResolvedValueOnce(true);
+
     render(<WalletConnect />);
     fireEvent.click(screen.getByTestId("wallet-picker-toggle"));
+
+    await waitFor(() => {
+      const lobstrRow = screen.getByTestId("wallet-picker-option-lobstr");
+      expect(lobstrRow.textContent).toContain("walletConnect.installed");
+    });
+
     fireEvent.click(screen.getByTestId("wallet-picker-option-lobstr"));
 
     expect(handleConnect).toHaveBeenCalledWith("lobstr");
