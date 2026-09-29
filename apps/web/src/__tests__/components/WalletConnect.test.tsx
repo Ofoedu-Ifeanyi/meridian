@@ -154,6 +154,24 @@ describe("WalletConnect — picker", () => {
     expect(handleConnect).toHaveBeenCalledWith("lobstr");
   });
 
+  it("connects an installed wallet clicked before isInstalled() has resolved", async () => {
+    const openSpy = vi.fn();
+    vi.stubGlobal("open", openSpy);
+
+    render(<WalletConnect />);
+    fireEvent.click(screen.getByTestId("wallet-picker-toggle"));
+    // Click before the picker's isInstalled() effect populates the cache, so
+    // the row's install state is still undefined at click time.
+    fireEvent.click(screen.getByTestId("wallet-picker-option-freighter"));
+
+    await waitFor(() => {
+      expect(handleConnect).toHaveBeenCalledWith("freighter");
+    });
+    expect(openSpy).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+  });
+
   it("closes the menu as soon as a wallet is picked", () => {
     render(<WalletConnect />);
     fireEvent.click(screen.getByTestId("wallet-picker-toggle"));

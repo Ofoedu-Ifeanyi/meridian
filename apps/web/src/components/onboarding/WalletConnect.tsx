@@ -72,11 +72,25 @@ export function WalletConnect() {
 
   function handlePick(wallet: (typeof WALLETS)[number]) {
     setPickerOpen(false);
-    if (installedById[wallet.id]) {
+    const cached = installedById[wallet.id];
+    if (cached === true) {
       void handleConnect(wallet.id);
-    } else {
-      window.open(wallet.installUrl, "_blank", "noopener,noreferrer");
+      return;
     }
+    if (cached === false) {
+      window.open(wallet.installUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    // Install state is still undefined right after the picker opens, before the
+    // isInstalled() effect resolves. Resolve on demand so a fast click connects
+    // an installed wallet rather than misrouting to its install page.
+    void wallet.adapter.isInstalled().then((installed) => {
+      if (installed) {
+        void handleConnect(wallet.id);
+      } else {
+        window.open(wallet.installUrl, "_blank", "noopener,noreferrer");
+      }
+    });
   }
 
   if (connected && publicKey) {
